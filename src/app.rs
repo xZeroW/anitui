@@ -1,6 +1,7 @@
 use crate::anime_list::{AnimeList, Status};
 use crate::input::InputMode;
 use color_eyre::Result;
+use image::DynamicImage;
 use ratatui::style::{Color, Style};
 use ratatui::{
     buffer::Buffer,
@@ -10,21 +11,32 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph, StatefulWidget, Widget},
     DefaultTerminal,
 };
+use ratatui_image::picker::Picker;
+use ratatui_image::protocol::StatefulProtocol;
 
 pub struct App {
     pub should_exit: bool,
     pub anime_list: AnimeList,
     pub input: String,
     pub mode: InputMode,
+    pub image: Box<dyn StatefulProtocol>,
 }
 
 impl Default for App {
     fn default() -> Self {
+        let mut picker = Picker::new((8, 12));
+        picker.guess_protocol();
+
+        // Create a placeholder image for initialization
+        let placeholder_image = DynamicImage::new_rgba8(1, 1);
+        let image_protocol = picker.new_resize_protocol(placeholder_image);
+
         Self {
             should_exit: false,
             input: String::new(),
             anime_list: AnimeList::default(),
-            mode: InputMode::Normal, // Start in normal mode
+            mode: InputMode::Normal,
+            image: image_protocol,
         }
     }
 }
@@ -36,6 +48,9 @@ impl App {
             if let Event::Key(key) = event::read()? {
                 self.handle_key(key);
             };
+
+            // After every key press, update the image according to the selected anime
+            self.update_image();
         }
         Ok(())
     }
@@ -98,6 +113,16 @@ impl App {
 
         paragraph.render(area, buf);
     }
+
+    pub fn update_image(&mut self) {
+        let mut picker = Picker::new((8, 12)); // Adjust the font size
+        picker.guess_protocol();
+
+        if let Some(selected_image) = self.anime_list.selected_image() {
+            // Create a new protocol for the selected anime's image
+            self.image = picker.new_resize_protocol(selected_image.clone());
+        }
+    }
 }
 
 impl Widget for &mut App {
@@ -110,28 +135,23 @@ impl Widget for &mut App {
         .areas(area);
 
         // Split the main area horizontally into list and details
-        let [list_area, details_area] = Layout::horizontal([
-            Constraint::Percentage(70), // 70% of the width for the list
-            Constraint::Percentage(30), // 30% of the width for the details
+        let [list_area, details_area, image_area] = Layout::horizontal([
+            Constraint::Percentage(50), // 50% for the list
+            Constraint::Percentage(30), // 30% for the details
+            Constraint::Percentage(20), // 20% for the image
         ])
         .areas(main_area);
 
-        // Render the header
-        App::render_header(header_area, buf);
-
         // Render the input field below the header
-        let input_area = Rect::new(
-            header_area.left(),
-            header_area.bottom(),
-            header_area.width,
-            main_area.height,
-        );
-        self.render_input(input_area, buf);
+        App::render_header(header_area, buf);
+        self.render_input(header_area, buf); // Render the input field
 
         // Render the list on the left side
         self.anime_list.render_list(list_area, buf);
 
         // Render the details area on the right side
         self.anime_list.render_selected_item(details_area, buf);
+
+        self.anime_list.render_image(image_area, buf)
     }
 }

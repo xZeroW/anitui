@@ -1,8 +1,11 @@
+use image::DynamicImage;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
     widgets::{Block, List, ListItem, ListState, StatefulWidget, Widget},
+    Frame,
 };
+use ratatui_image::{picker::Picker, protocol::StatefulProtocol, StatefulImage};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Status {
@@ -18,6 +21,7 @@ pub struct AnimeList {
 #[derive(Debug)]
 pub struct AnimeItem {
     pub name: String,
+    pub image: DynamicImage,
     pub description: String,
     pub status: Status,
 }
@@ -28,18 +32,30 @@ impl Default for AnimeList {
             items: vec![
                 AnimeItem {
                     name: "Attack on Titan".to_string(),
+                    image: image::ImageReader::open("./src/assets/47347.jpg")
+                        .expect("Failed to open image")
+                        .decode()
+                        .expect("Failed to decode image"),
                     description: "Humans fighting titans to survive".to_string(),
-                    status: Status::Ongoing,
-                },
-                AnimeItem {
-                    name: "One Piece".to_string(),
-                    description: "Pirate adventures to find the ultimate treasure".to_string(),
                     status: Status::Completed,
                 },
                 AnimeItem {
-                    name: "Naruto".to_string(),
-                    description: "Ninja striving to become Hokage".to_string(),
+                    name: "One Piece".to_string(),
+                    image: image::ImageReader::open("./src/assets/111305.jpg")
+                        .expect("Failed to open image")
+                        .decode()
+                        .expect("Failed to decode image"),
+                    description: "Pirate adventures to find the ultimate treasure".to_string(),
                     status: Status::Ongoing,
+                },
+                AnimeItem {
+                    name: "Naruto".to_string(),
+                    image: image::ImageReader::open("./src/assets/138851.jpg")
+                        .expect("Failed to open image")
+                        .decode()
+                        .expect("Failed to decode image"),
+                    description: "Ninja striving to become Hokage".to_string(),
+                    status: Status::Completed,
                 },
             ],
             state: ListState::default(),
@@ -98,7 +114,7 @@ impl AnimeList {
             .selected()
             .map(|i| {
                 format!(
-                    "Selected: {}\nDescription: {}\nStatus: {:?}",
+                    "Title: {}\nDescription: {}\nStatus: {:?}",
                     self.items[i].name, self.items[i].description, self.items[i].status
                 )
             })
@@ -111,5 +127,15 @@ impl AnimeList {
         );
 
         paragraph.render(area, buf);
+    }
+
+    pub fn render_image(f: &mut Frame<'_>, area: Rect, buf: &mut Buffer) {
+        let image = StatefulImage::new(None);
+        // Render with the protocol state.
+        f.render_stateful_widget(image, f.area(), &mut app.image)
+    }
+
+    pub fn selected_image(&self) -> Option<&DynamicImage> {
+        self.state.selected().map(|i| &self.items[i].image)
     }
 }

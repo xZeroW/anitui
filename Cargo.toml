@@ -5,5 +5,7 @@ edition = "2021"
 
 [dependencies]
 color-eyre = "0.6.3"
+image = "0.25.2"
 ratatui = "0.28.1"
+ratatui-image = "1.0.5"
 tui-input = "0.10.1"
