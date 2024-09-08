@@ -1,8 +1,11 @@
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
+    style::{Color, Style},
     widgets::{Block, List, ListItem, ListState, StatefulWidget, Widget},
 };
+
+use crate::input::InputMode;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Status {
@@ -76,7 +79,7 @@ impl AnimeList {
         self.state.select(Some(i));
     }
 
-    pub fn render_list(&mut self, area: Rect, buf: &mut Buffer) {
+    pub fn render_list(&mut self, area: Rect, buf: &mut Buffer, mode: &InputMode) {
         let block = Block::default()
             .title("Anime List")
             .borders(ratatui::widgets::Borders::ALL);
@@ -84,10 +87,16 @@ impl AnimeList {
         let items: Vec<ListItem> = self
             .items
             .iter()
-            .map(|item| ListItem::new(format!("{} - {:?}", item.name, item.status)))
+            .map(|item| ListItem::new(format!("{}", item.name)))
             .collect();
 
-        let list = List::new(items).block(block).highlight_symbol(">>");
+        let list = List::new(items)
+            .block(block)
+            .style(match mode {
+                InputMode::Insert => Style::default(),
+                InputMode::Normal => Style::default().fg(Color::LightBlue),
+            })
+            .highlight_symbol(">");
 
         StatefulWidget::render(list, area, buf, &mut self.state);
     }
@@ -111,5 +120,13 @@ impl AnimeList {
         );
 
         paragraph.render(area, buf);
+    }
+
+    pub fn add_item(&mut self, name: String, description: String, status: Status) {
+        self.items.push(AnimeItem {
+            name,
+            description,
+            status,
+        });
     }
 }

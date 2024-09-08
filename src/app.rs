@@ -6,8 +6,7 @@ use ratatui::{
     buffer::Buffer,
     crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind},
     layout::{Constraint, Layout, Rect},
-    text::Line,
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, StatefulWidget, Widget},
+    widgets::{Block, Borders, Paragraph, Widget},
     DefaultTerminal,
 };
 
@@ -68,24 +67,29 @@ impl App {
                 self.input.pop();
             }
             KeyCode::Esc => self.mode = InputMode::Normal, // Return to Normal Mode
+            KeyCode::Down | KeyCode::Up => {
+                self.mode = InputMode::Normal;
+                self.anime_list.select_next();
+            }
+            KeyCode::Enter => {
+                self.add_anime(self.input.clone(), String::new(), Status::Ongoing);
+                self.input.clear();
+                self.mode = InputMode::Normal;
+            }
             _ => {}
         }
     }
 
     /// Custom method to render the input field (not part of the Widget trait)
     fn render_input(&self, area: Rect, buf: &mut Buffer) {
-        let mode_indicator = match self.mode {
-            InputMode::Normal => "NORMAL",
-            InputMode::Insert => "INSERT",
-        };
-
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .title(format!("Search [{}]", mode_indicator));
+        let block = Block::default().borders(Borders::ALL).title("Search");
 
         let paragraph = Paragraph::new(self.input.as_str())
             .block(block)
-            .style(Style::default().fg(Color::White));
+            .style(match self.mode {
+                InputMode::Normal => Style::default(),
+                InputMode::Insert => Style::default().fg(Color::LightBlue),
+            });
 
         paragraph.render(area, buf);
     }
@@ -93,18 +97,23 @@ impl App {
     fn render_header(area: Rect, buf: &mut Buffer) {
         // Example header text for the app, this can be customized
         let paragraph = Paragraph::new("AniTUI")
-            .style(Style::default().fg(Color::White))
+            .style(Style::default())
             .alignment(ratatui::layout::Alignment::Center);
 
         paragraph.render(area, buf);
+    }
+
+    fn add_anime(&mut self, name: String, description: String, status: Status) {
+        self.anime_list.add_item(name, description, status);
     }
 }
 
 impl Widget for &mut App {
     fn render(self, area: Rect, buf: &mut Buffer) {
         // Split the area vertically into header and main content
-        let [header_area, main_area] = Layout::vertical([
-            Constraint::Length(3), // Header height
+        let [header_area, input_area, main_area] = Layout::vertical([
+            Constraint::Length(1), // Header height
+            Constraint::Length(3), // Input field height
             Constraint::Min(1),    // Main content height
         ])
         .areas(area);
@@ -119,17 +128,10 @@ impl Widget for &mut App {
         // Render the header
         App::render_header(header_area, buf);
 
-        // Render the input field below the header
-        let input_area = Rect::new(
-            header_area.left(),
-            header_area.bottom(),
-            header_area.width,
-            main_area.height,
-        );
         self.render_input(input_area, buf);
 
         // Render the list on the left side
-        self.anime_list.render_list(list_area, buf);
+        self.anime_list.render_list(list_area, buf, &self.mode);
 
         // Render the details area on the right side
         self.anime_list.render_selected_item(details_area, buf);
